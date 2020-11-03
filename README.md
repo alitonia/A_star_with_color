@@ -1,5 +1,8 @@
 # A_star_with_color
-Manual implement of A*, with colorful print to illustrate the algorithms.
+Search for a path to destination in graph, granted being at a node give distance to all neighbor nodes.
+
+This program assumes predicted cost is the same as distance.
+
 
 ### Extending capacity:
 

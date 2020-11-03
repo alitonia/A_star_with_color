@@ -1,4 +1,4 @@
-import enum
+import collections
 from typing import Dict, List, Union, Any
 
 from colorama import Style, init, Fore, deinit
@@ -121,9 +121,6 @@ def get_neighbor_nodes(visiting_node, blue_graph: Dict[Any, List[Node]]) -> List
 
 def solve(magic_graph: Dict[Any, List[Node]], starting_point: Any, ending_node: Any) -> int:
 	visited = dict()
-	# fridge = [Node(starting_point, 0)]
-	
-	# Take 10 as average link per node
 	fridge = PriorityNodeQueue()
 	
 	fridge.push(Blob(0, starting_point, 0, []))
@@ -136,10 +133,14 @@ def solve(magic_graph: Dict[Any, List[Node]], starting_point: Any, ending_node: 
 			f'Visiting node {Fore.LIGHTRED_EX}%s{Style.RESET_ALL},'
 			f' distance from start: {Fore.LIGHTRED_EX}%s{Style.RESET_ALL}'
 			% (visiting_node, current_distance))
-		visited[visiting_node] = current_distance
+		
+		visited[visiting_node] = (
+			current_distance
+			if (not visited.get(visiting_node) or visited.get(visiting_node) > current_distance)
+			else visited.get(visiting_node))
 		
 		if visiting_node == ending_node:
-			print(f'{Fore.LIGHTYELLOW_EX}This is the ending node, total distance: %s' % current_distance)
+			print(f'{Fore.LIGHTYELLOW_EX}This is the ending node.')
 			print(f'{Fore.LIGHTYELLOW_EX}Path taken: %s' % (history_a + [visiting_node]))
 			return 0
 		else:
@@ -156,11 +157,14 @@ def solve(magic_graph: Dict[Any, List[Node]], starting_point: Any, ending_node: 
 				historical_distance_if_exist = visited.get(node.name)
 				node_distance_in_fridge_if_exist = fridge.get_node_length(node.name)
 				
-				history_approved = (not historical_distance_if_exist or
-				                    (historical_distance_if_exist and (historical_distance_if_exist > node.distance))
-				                    )
+				history_approved = (
+						(historical_distance_if_exist is None)
+						or (historical_distance_if_exist > node.distance)
+				)
+				
 				fridge_approved = (
-						(node_distance_in_fridge_if_exist == -1) or (node_distance_in_fridge_if_exist > node.distance)
+						(node_distance_in_fridge_if_exist == -1)
+						or (node_distance_in_fridge_if_exist > node.distance)
 				)
 				if history_approved and fridge_approved:
 					valid_neighbor_nodes.append(node)
@@ -175,64 +179,65 @@ def solve(magic_graph: Dict[Any, List[Node]], starting_point: Any, ending_node: 
 			print(f'{Fore.YELLOW}Visited:{Style.RESET_ALL} %s' % visited.keys())
 			print(f'{Fore.YELLOW}Fridge:{Style.RESET_ALL} %s' % fridge)
 			
-			print('-------')
+			print('-' * 10)
 	return -1
-
-
-class Alpha(enum.Enum):
-	a = 1
-	b = 2
-	c = 3
-	d = 4
-	e = 5
-	f = 7
-	g = 8
-	h = 9
-	k = 10
-	
-	def __repr__(self):
-		return self.name
-	
-	def __lt__(self, other):
-		return str(self) < str(other)
 
 
 if __name__ == '__main__':
 	init(autoreset=True)
 	rainbow_graph = {
-		Alpha.a: [(Alpha.b, 5), (Alpha.c, 7), (Alpha.d, 9)],
-		Alpha.b: [(Alpha.g, 6), (Alpha.e, 4), (Alpha.c, 3)],
-		Alpha.c: [(Alpha.e, 2)],
-		Alpha.e: [(Alpha.g, 4), (Alpha.h, 4)],
-		Alpha.g: [(Alpha.k, 5)],
-		Alpha.k: [(Alpha.h, 5)],
-		Alpha.h: [(Alpha.f, 2)],
-		Alpha.f: [(Alpha.d, 2)],
-		Alpha.d: [(Alpha.a, 9)],
+		'A': [('B', 5), ('C', 7), ('D', 9)],
+		'B': [('G', 6), ('E', 4), ('C', 3)],
+		'C': [('E', 2)],
+		'E': [('G', 4), ('H', 4)],
+		'G': [('K', 5)],
+		'K': [('H', 5)],
+		'H': [('F', 2)],
+		'F': [('D', 2)],
+		'D': [('A', 9)],
 	}
+	
+	# Extension: a predictive table of estimate cost to get to a node.
+	# Simulate by adding cost to all edges of node
+	manual_labor = {
+		'A': 1,
+		'B': 1,
+		'C': 1,
+		'D': 1,
+		'E': 1,
+		'F': 1,
+		'G': 1,
+		'H': 1,
+		'K': 1
+	}
+	unsuspected_hill = collections.defaultdict(lambda: 0)
+	for (key, value) in manual_labor.items():
+		unsuspected_hill[key] = value
 	
 	# This part turn directed graph to non-directed one
 	harper = []
 	# get all pairs
 	for (key, things) in rainbow_graph.items():
 		for thing in things:
-			harper.append(tuple((key, thing[0], thing[1])) if key > thing[0] else tuple((thing[0], key, thing[1])))
+			harper.append(tuple((key, thing[0], thing[1]))
+			              if key > thing[0] else tuple((thing[0], key, thing[1]))
+			              )
 	
 	# remove duplicate
 	harper = list(sorted(set(harper)))
 	
-	rainbow_key = sorted([key for key in rainbow_graph.keys()])
+	rainbow_keys = sorted([key for key in rainbow_graph.keys()])
 	rainbow_graph = dict()
 	
-	for key in rainbow_key:
-		rainbow_graph[key] = [tuple([x for x in list(thing) if x != key]) for thing in harper if key in thing]
+	for key in rainbow_keys:
+		rainbow_graph[key] = [[x for x in list(thing) if x != key] for thing in harper if key in thing]
 	
 	print('Data: ')
 	for thing in rainbow_graph.items():
 		print(thing)
-	
+	print('-' * 20)
 	rainbow_graph = {start_node: [Node(*node_data, []) for node_data in neighbor_list]
 	                 for (start_node, neighbor_list) in rainbow_graph.items()}
 	
-	solve(rainbow_graph, Alpha.a, Alpha.k)
+	solve(rainbow_graph, 'A', 'K')
 	deinit()
